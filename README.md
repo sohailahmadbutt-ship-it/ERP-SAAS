@@ -48,7 +48,7 @@ Run the tests (needs the database up): `pnpm test`.
 ## Roadmap
 
 1. ✅ Monorepo, CI, tenant signup, subdomain routing, auth, users and roles
-2. Company settings, contacts
+2. ✅ Company settings, contacts (customers, vendors, people at a company)
 3. Products, units, warehouses, stock moves
 4. Sales: quotation → order → invoice, PDFs
 5. Purchase: RFQ → order → bill, receipts

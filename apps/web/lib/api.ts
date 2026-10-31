@@ -58,4 +58,37 @@ export interface Tenant {
   name: string;
   plan: string;
   currency: string;
+  taxId: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+}
+
+export interface Contact {
+  id: string;
+  kind: 'COMPANY' | 'PERSON';
+  name: string;
+  parentId: string | null;
+  parent?: { id: string; name: string } | null;
+  children?: Contact[];
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  taxId: string | null;
+  isCustomer: boolean;
+  isVendor: boolean;
+  creditLimit: string | null;
+  notes: string | null;
+  archived: boolean;
+}
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
