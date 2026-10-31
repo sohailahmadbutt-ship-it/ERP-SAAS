@@ -8,11 +8,13 @@ interface Row {
   id: string;
   number: string | null;
   status: string;
-  customer: { name: string };
+  customer?: { name: string };
+  vendor?: { name: string };
   total: string;
   currency: string;
   orderDate?: string;
   invoiceDate?: string;
+  billDate?: string;
   amountPaid?: string;
 }
 
@@ -23,12 +25,16 @@ export function DocList({
   basePath,
   tabs,
   newLabel,
+  partyLabel = 'Customer',
+  purchase,
 }: {
   title: string;
   endpoint: string;
   basePath: string;
   tabs: { label: string; status: string }[];
   newLabel: string;
+  partyLabel?: string;
+  purchase?: boolean;
 }) {
   const [status, setStatus] = useState(tabs[0].status);
   const [q, setQ] = useState('');
@@ -59,20 +65,20 @@ export function DocList({
           </button>
         ))}
       </div>
-      <input placeholder="Search number or customer" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
+      <input placeholder={`Search number or ${partyLabel.toLowerCase()}`} value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
       {error && <p className="error">{error}</p>}
       <section className="card" style={{ marginTop: 16, padding: 0 }}>
         <table>
           <thead>
-            <tr><th>Number</th><th>Customer</th><th>Date</th><th>Status</th><th className="num">Total</th></tr>
+            <tr><th>Number</th><th>{partyLabel}</th><th>Date</th><th>Status</th><th className="num">Total</th></tr>
           </thead>
           <tbody>
             {data?.items.map((d) => (
               <tr key={d.id}>
                 <td><Link href={`${basePath}/${d.id}`}>{d.number ?? 'Draft'}</Link></td>
-                <td>{d.customer.name}</td>
-                <td>{day(d.orderDate ?? d.invoiceDate)}</td>
-                <td><StatusBadge status={d.status} /></td>
+                <td>{(d.customer ?? d.vendor)?.name}</td>
+                <td>{day(d.orderDate ?? d.invoiceDate ?? d.billDate)}</td>
+                <td><StatusBadge status={d.status} purchase={purchase} /></td>
                 <td className="num">{money(d.total, d.currency)}</td>
               </tr>
             ))}

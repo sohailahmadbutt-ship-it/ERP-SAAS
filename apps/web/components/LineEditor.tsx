@@ -45,17 +45,20 @@ export function LineEditor({
   products,
   taxes,
   currency,
+  priceField = 'salePrice',
 }: {
   lines: EditLine[];
   onChange: (lines: EditLine[]) => void;
   products: Product[];
   taxes: Tax[];
   currency: string;
+  /** Which product price pre-fills the line: sale price for sales, cost for purchases. */
+  priceField?: 'salePrice' | 'cost';
 }) {
   const set = (i: number, patch: Partial<EditLine>) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const pick = (i: number, productId: string) => {
     const p = products.find((x) => x.id === productId);
-    set(i, { productId, description: p?.name ?? '', unitPrice: p?.salePrice ?? '', taxId: lines[i].taxId || taxes.find((t) => !t.archived)?.id || '' });
+    set(i, { productId, description: p?.name ?? '', unitPrice: p?.[priceField] ?? '', taxId: lines[i].taxId || taxes.find((t) => !t.archived)?.id || '' });
   };
   const t = previewTotals(lines, taxes);
 
@@ -121,9 +124,10 @@ export function Totals({ subtotal, tax, total, currency, paid }: { subtotal: str
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, purchase }: { status: string; purchase?: boolean }) {
   const label: Record<string, string> = {
-    QUOTATION: 'Quotation', CONFIRMED: 'Sales order', CANCELLED: 'Cancelled', DRAFT: 'Draft', POSTED: 'Posted', PAID: 'Paid',
+    QUOTATION: 'Quotation', RFQ: 'Request for quotation', CONFIRMED: purchase ? 'Purchase order' : 'Sales order',
+    CANCELLED: 'Cancelled', DRAFT: 'Draft', POSTED: 'Posted', PAID: 'Paid',
   };
   return <span className={`badge ${status.toLowerCase()}`}>{label[status] ?? status}</span>;
 }

@@ -16,6 +16,8 @@ import { StockService } from './inventory/stock.service';
 import { TaxesController } from './sales/taxes.controller';
 import { SalesOrdersController } from './sales/sales-orders.controller';
 import { InvoicesController } from './sales/invoices.controller';
+import { PurchaseOrdersController } from './purchase/purchase-orders.controller';
+import { BillsController } from './purchase/bills.controller';
 
 @Module({
   imports: [
@@ -25,7 +27,7 @@ import { InvoicesController } from './sales/invoices.controller';
       signOptions: { expiresIn: '12h' },
     }),
   ],
-  controllers: [HealthController, AuthController, UsersController, CompanyController, ContactsController, UnitsController, WarehousesController, ProductsController, StockController, TaxesController, SalesOrdersController, InvoicesController],
+  controllers: [HealthController, AuthController, UsersController, CompanyController, ContactsController, UnitsController, WarehousesController, ProductsController, StockController, TaxesController, SalesOrdersController, InvoicesController, PurchaseOrdersController, BillsController],
   providers: [PrismaService, AuthService, StockService],
 })
 export class AppModule implements NestModule {

@@ -240,3 +240,44 @@ export const day = (v: string | null | undefined) => (v ? new Date(v).toLocaleDa
 
 /** yyyy-mm-dd for <input type="date">. */
 export const isoDay = (v: string | null | undefined) => (v ? v.slice(0, 10) : '');
+
+export interface PurchaseOrder {
+  id: string;
+  number: string;
+  status: 'RFQ' | 'CONFIRMED' | 'CANCELLED';
+  vendorId: string;
+  vendor: Party;
+  warehouseId: string;
+  warehouse?: { id: string; code: string; name: string };
+  orderDate: string;
+  expectedDate: string | null;
+  vendorRef: string | null;
+  currency: string;
+  notes: string | null;
+  subtotal: string;
+  taxTotal: string;
+  total: string;
+  lines?: (DocLine & { receivedQty?: string; billedQty?: string })[];
+  bills?: { id: string; number: string | null; status: Bill['status']; total: string; amountPaid: string }[];
+}
+
+export interface Bill {
+  id: string;
+  number: string | null;
+  vendorRef: string | null;
+  status: 'DRAFT' | 'POSTED' | 'PAID' | 'CANCELLED';
+  vendorId: string;
+  vendor: Party;
+  order?: { id: string; number: string } | null;
+  orderId: string | null;
+  billDate: string;
+  dueDate: string | null;
+  currency: string;
+  notes: string | null;
+  subtotal: string;
+  taxTotal: string;
+  total: string;
+  amountPaid: string;
+  lines?: DocLine[];
+  payments?: Payment[];
+}

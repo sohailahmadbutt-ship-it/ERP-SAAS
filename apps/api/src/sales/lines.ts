@@ -8,7 +8,7 @@ import { lineAmounts } from './money';
  * Resolves products and taxes for document lines (inside the tenant
  * transaction, so only this company's rows are visible) and computes amounts.
  */
-export async function buildLines(tx: Tx, tenantId: string, input: LineInput[]) {
+export async function buildLines(tx: Tx, tenantId: string, input: LineInput[], defaultPrice: 'salePrice' | 'cost' = 'salePrice') {
   const productIds = [...new Set(input.map((l) => l.productId))];
   const taxIds = [...new Set(input.map((l) => l.taxId).filter((t): t is string => !!t))];
   const [products, taxes] = await Promise.all([
@@ -22,7 +22,7 @@ export async function buildLines(tx: Tx, tenantId: string, input: LineInput[]) {
     if (!product) throw new BadRequestException(`Line ${i + 1}: product not found`);
     const tax = l.taxId ? t.get(l.taxId) : undefined;
     if (l.taxId && !tax) throw new BadRequestException(`Line ${i + 1}: tax not found`);
-    const unitPrice = l.unitPrice !== undefined ? new Prisma.Decimal(l.unitPrice) : product.salePrice;
+    const unitPrice = l.unitPrice !== undefined ? new Prisma.Decimal(l.unitPrice) : product[defaultPrice];
     const discountPct = new Prisma.Decimal(l.discountPct ?? 0);
     const taxRate = tax?.rate ?? new Prisma.Decimal(0);
     return {
@@ -41,7 +41,7 @@ export async function buildLines(tx: Tx, tenantId: string, input: LineInput[]) {
 }
 
 /** Locks a document row for the rest of the transaction (serialises actions on it). */
-export async function lockRow(tx: Tx, table: 'sales_orders' | 'invoices', id: string) {
+export async function lockRow(tx: Tx, table: 'sales_orders' | 'invoices' | 'purchase_orders' | 'bills', id: string) {
   const rows = await tx.$queryRawUnsafe<{ id: string }[]>(`SELECT id FROM ${table} WHERE id = $1::uuid FOR UPDATE`, id);
   return rows.length > 0;
 }

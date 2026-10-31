@@ -15,6 +15,8 @@ interface Doc {
   amountPaid?: string;
   currency: string;
   notes: string | null;
+  /** Heading over the other party's address. */
+  partyLabel?: string;
 }
 
 const addr = (p: Partial<Party>) => [p.address, p.city, p.country].filter(Boolean).join(', ');
@@ -60,7 +62,7 @@ export function PrintDoc({ load }: { load: () => Promise<Doc> }) {
         </div>
       </header>
       <section className="print-to">
-        <div className="muted">Bill to</div>
+        <div className="muted">{doc.partyLabel ?? 'Bill to'}</div>
         <strong>{doc.customer.name}</strong>
         <div>{addr(doc.customer)}</div>
         {doc.customer.taxId && <div>Tax no. {doc.customer.taxId}</div>}

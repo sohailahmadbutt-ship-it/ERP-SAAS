@@ -35,6 +35,11 @@ model Tenant {
   invoices   Invoice[]
   invoiceLines InvoiceLine[]
   payments   Payment[]
+  purchaseOrders PurchaseOrder[]
+  purchaseOrderLines PurchaseOrderLine[]
+  bills      Bill[]
+  billLines  BillLine[]
+  billPayments BillPayment[]
 
   @@map("tenants")
 }
@@ -92,6 +97,8 @@ model Contact {
 
   salesOrders SalesOrder[]
   invoices    Invoice[]
+  purchaseOrders PurchaseOrder[]
+  bills       Bill[]
 
   @@unique([id, tenantId])
   @@index([tenantId, name])
@@ -142,6 +149,8 @@ model Product {
   moves       StockMove[]
   orderLines   SalesOrderLine[]
   invoiceLines InvoiceLine[]
+  purchaseLines PurchaseOrderLine[]
+  billLines    BillLine[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, sku])
@@ -160,6 +169,7 @@ model Warehouse {
   createdAt DateTime    @default(now()) @map("created_at")
   moves     StockMove[]
   salesOrders SalesOrder[]
+  purchaseOrders PurchaseOrder[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, code])
@@ -214,6 +224,8 @@ model Tax {
   archived     Boolean          @default(false)
   orderLines   SalesOrderLine[]
   invoiceLines InvoiceLine[]
+  purchaseLines PurchaseOrderLine[]
+  billLines    BillLine[]
 
   @@unique([id, tenantId])
   @@map("taxes")
@@ -374,4 +386,159 @@ model Payment {
 
   @@index([tenantId, invoiceId])
   @@map("payments")
+}
+
+// ---------------------------------------------------------------------------
+// Purchasing
+// ---------------------------------------------------------------------------
+
+enum PurchaseOrderStatus {
+  RFQ
+  CONFIRMED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id           String              @id @default(uuid()) @db.Uuid
+  tenantId     String              @map("tenant_id") @db.Uuid
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number       String
+  status       PurchaseOrderStatus @default(RFQ)
+  vendorId     String              @map("vendor_id") @db.Uuid
+  vendor       Contact             @relation(fields: [vendorId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  /// Warehouse goods are received into.
+  warehouseId  String              @map("warehouse_id") @db.Uuid
+  warehouse    Warehouse           @relation(fields: [warehouseId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  orderDate    DateTime            @default(now()) @map("order_date") @db.Date
+  expectedDate DateTime?           @map("expected_date") @db.Date
+  vendorRef    String?             @map("vendor_ref")
+  currency     String
+  notes        String?
+  subtotal     Decimal             @default(0) @db.Decimal(14, 2)
+  taxTotal     Decimal             @default(0) @map("tax_total") @db.Decimal(14, 2)
+  total        Decimal             @default(0) @db.Decimal(14, 2)
+  confirmedAt  DateTime?           @map("confirmed_at")
+  createdById  String              @map("created_by_id") @db.Uuid
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  lines        PurchaseOrderLine[]
+  bills        Bill[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, number])
+  @@index([tenantId, createdAt])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id          String        @id @default(uuid()) @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId     String        @map("order_id") @db.Uuid
+  order       PurchaseOrder @relation(fields: [orderId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  position    Int
+  productId   String        @map("product_id") @db.Uuid
+  product     Product       @relation(fields: [productId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  description String
+  quantity    Decimal       @db.Decimal(14, 3)
+  unitPrice   Decimal       @map("unit_price") @db.Decimal(14, 2)
+  discountPct Decimal       @default(0) @map("discount_pct") @db.Decimal(5, 2)
+  taxId       String?       @map("tax_id") @db.Uuid
+  tax         Tax?          @relation(fields: [taxId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  taxRate     Decimal       @default(0) @map("tax_rate") @db.Decimal(6, 3)
+  subtotal    Decimal       @db.Decimal(14, 2)
+  taxAmount   Decimal       @map("tax_amount") @db.Decimal(14, 2)
+  total       Decimal       @db.Decimal(14, 2)
+  receivedQty Decimal       @default(0) @map("received_qty") @db.Decimal(14, 3)
+  billedQty   Decimal       @default(0) @map("billed_qty") @db.Decimal(14, 3)
+  billLines   BillLine[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, orderId])
+  @@map("purchase_order_lines")
+}
+
+enum BillStatus {
+  DRAFT
+  POSTED
+  PAID
+  CANCELLED
+}
+
+/// A vendor's invoice to us.
+model Bill {
+  id          String        @id @default(uuid()) @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Our number, assigned when posted.
+  number      String?
+  /// The vendor's own invoice number.
+  vendorRef   String?       @map("vendor_ref")
+  status      BillStatus    @default(DRAFT)
+  vendorId    String        @map("vendor_id") @db.Uuid
+  vendor      Contact       @relation(fields: [vendorId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  orderId     String?       @map("order_id") @db.Uuid
+  order       PurchaseOrder? @relation(fields: [orderId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  billDate    DateTime      @default(now()) @map("bill_date") @db.Date
+  dueDate     DateTime?     @map("due_date") @db.Date
+  currency    String
+  notes       String?
+  subtotal    Decimal       @default(0) @db.Decimal(14, 2)
+  taxTotal    Decimal       @default(0) @map("tax_total") @db.Decimal(14, 2)
+  total       Decimal       @default(0) @db.Decimal(14, 2)
+  amountPaid  Decimal       @default(0) @map("amount_paid") @db.Decimal(14, 2)
+  postedAt    DateTime?     @map("posted_at")
+  createdById String        @map("created_by_id") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  lines       BillLine[]
+  payments    BillPayment[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, number])
+  @@index([tenantId, createdAt])
+  @@map("bills")
+}
+
+model BillLine {
+  id          String             @id @default(uuid()) @db.Uuid
+  tenantId    String             @map("tenant_id") @db.Uuid
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  billId      String             @map("bill_id") @db.Uuid
+  bill        Bill               @relation(fields: [billId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  position    Int
+  productId   String             @map("product_id") @db.Uuid
+  product     Product            @relation(fields: [productId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  orderLineId String?            @map("order_line_id") @db.Uuid
+  orderLine   PurchaseOrderLine? @relation(fields: [orderLineId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  description String
+  quantity    Decimal            @db.Decimal(14, 3)
+  unitPrice   Decimal            @map("unit_price") @db.Decimal(14, 2)
+  discountPct Decimal            @default(0) @map("discount_pct") @db.Decimal(5, 2)
+  taxId       String?            @map("tax_id") @db.Uuid
+  tax         Tax?               @relation(fields: [taxId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  taxRate     Decimal            @default(0) @map("tax_rate") @db.Decimal(6, 3)
+  subtotal    Decimal            @db.Decimal(14, 2)
+  taxAmount   Decimal            @map("tax_amount") @db.Decimal(14, 2)
+  total       Decimal            @db.Decimal(14, 2)
+
+  @@index([tenantId, billId])
+  @@map("bill_lines")
+}
+
+model BillPayment {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  billId      String   @map("bill_id") @db.Uuid
+  bill        Bill     @relation(fields: [billId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  paymentDate DateTime @default(now()) @map("payment_date") @db.Date
+  amount      Decimal  @db.Decimal(14, 2)
+  method      String
+  reference   String?
+  createdById String   @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, billId])
+  @@map("bill_payments")
 }
