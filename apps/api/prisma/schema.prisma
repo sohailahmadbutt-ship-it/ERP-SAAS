@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A company that subscribes to the platform. Not tenant-scoped itself.
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique
+  name      String
+  plan      String   @default("trial")
+  currency  String   @default("PKR")
+  createdAt DateTime @default(now()) @map("created_at")
+  users     User[]
+
+  @@map("tenants")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+/// Tenant-scoped: protected by the row-level security policy on tenant_id.
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String
+  name         String
+  passwordHash String   @map("password_hash")
+  role         Role     @default(MEMBER)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
