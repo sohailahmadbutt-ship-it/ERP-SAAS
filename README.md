@@ -44,12 +44,17 @@ Run the tests (needs the database up): `pnpm test`.
      WITH CHECK ("tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
    ```
 3. Always query it inside `prisma.withTenant(tenant.id, tx => ...)`.
+4. When it references another tenant-scoped table, use a composite foreign
+   key so the database rejects links across companies (plain foreign key
+   checks bypass row-level security). Give the referenced model
+   `@@unique([id, tenantId])` and write the relation as
+   `@relation(fields: [productId, tenantId], references: [id, tenantId], onDelete: NoAction)`.
 
 ## Roadmap
 
 1. ✅ Monorepo, CI, tenant signup, subdomain routing, auth, users and roles
 2. ✅ Company settings, contacts (customers, vendors, people at a company)
-3. Products, units, warehouses, stock moves
+3. ✅ Products, units, warehouses, stock moves (receipts, deliveries, transfers, counts)
 4. Sales: quotation → order → invoice, PDFs
 5. Purchase: RFQ → order → bill, receipts
 6. Accounting: ledger, payments, financial reports

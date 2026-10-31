@@ -27,3 +27,8 @@ button.secondary { background: #fff; color: var(--fg); border: 1px solid var(--l
 a.tile.live { color: var(--fg); text-decoration: none; font-weight: 600; }
 a.tile.live:hover { border-color: var(--accent); }
 button:disabled { opacity: .5; cursor: default; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tabs { display: flex; gap: 6px; margin-bottom: 4px; }
+button.tab { margin: 0; background: #fff; color: var(--fg); border: 1px solid var(--line); padding: 6px 14px; }
+button.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+td.error { margin: 0; }
