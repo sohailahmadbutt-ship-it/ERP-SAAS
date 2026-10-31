@@ -14,8 +14,16 @@ model Tenant {
   name      String
   plan      String   @default("trial")
   currency  String   @default("PKR")
+  /// Tax registration number, e.g. NTN / STRN in Pakistan
+  taxId     String?  @map("tax_id")
+  email     String?
+  phone     String?
+  address   String?
+  city      String?
+  country   String?  @default("PK")
   createdAt DateTime @default(now()) @map("created_at")
   users     User[]
+  contacts  Contact[]
 
   @@map("tenants")
 }
@@ -39,4 +47,38 @@ model User {
 
   @@unique([tenantId, email])
   @@map("users")
+}
+
+enum ContactKind {
+  COMPANY
+  PERSON
+}
+
+/// Tenant-scoped: customers, vendors and the people who work at them.
+model Contact {
+  id          String      @id @default(uuid()) @db.Uuid
+  tenantId    String      @map("tenant_id") @db.Uuid
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind        ContactKind @default(COMPANY)
+  name        String
+  /// A person can belong to a company contact.
+  parentId    String?     @map("parent_id") @db.Uuid
+  parent      Contact?    @relation("ContactChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Contact[]   @relation("ContactChildren")
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  country     String?
+  taxId       String?     @map("tax_id")
+  isCustomer  Boolean     @default(false) @map("is_customer")
+  isVendor    Boolean     @default(false) @map("is_vendor")
+  creditLimit Decimal?    @map("credit_limit") @db.Decimal(14, 2)
+  notes       String?
+  archived    Boolean     @default(false)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@index([tenantId, name])
+  @@map("contacts")
 }

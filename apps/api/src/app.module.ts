@@ -6,6 +6,8 @@ import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
 import { UsersController } from './users/users.controller';
 import { HealthController } from './health/health.controller';
+import { CompanyController } from './company/company.controller';
+import { ContactsController } from './contacts/contacts.controller';
 
 @Module({
   imports: [
@@ -15,7 +17,7 @@ import { HealthController } from './health/health.controller';
       signOptions: { expiresIn: '12h' },
     }),
   ],
-  controllers: [HealthController, AuthController, UsersController],
+  controllers: [HealthController, AuthController, UsersController, CompanyController, ContactsController],
   providers: [PrismaService, AuthService],
 })
 export class AppModule implements NestModule {

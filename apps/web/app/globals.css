@@ -16,5 +16,14 @@ table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); font-size: 14px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin: 20px 0; }
 .tile { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; color: var(--muted); }
-.row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .row > div { flex: 1; min-width: 160px; }
+textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+.nav { display: flex; gap: 18px; align-items: center; }
+.nav a { color: var(--muted); text-decoration: none; }
+.nav a.active { color: var(--fg); font-weight: 600; }
+a.button { background: var(--accent); color: #fff; border-radius: 6px; padding: 10px 16px; text-decoration: none; }
+button.secondary { background: #fff; color: var(--fg); border: 1px solid var(--line); }
+a.tile.live { color: var(--fg); text-decoration: none; font-weight: 600; }
+a.tile.live:hover { border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
