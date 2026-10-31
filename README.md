@@ -55,7 +55,7 @@ Run the tests (needs the database up): `pnpm test`.
 1. ✅ Monorepo, CI, tenant signup, subdomain routing, auth, users and roles
 2. ✅ Company settings, contacts (customers, vendors, people at a company)
 3. ✅ Products, units, warehouses, stock moves (receipts, deliveries, transfers, counts)
-4. Sales: quotation → order → invoice, PDFs
+4. ✅ Sales: quotation → order → delivery → invoice → payment, taxes, printable documents
 5. Purchase: RFQ → order → bill, receipts
 6. Accounting: ledger, payments, financial reports
 7. Subscription billing and platform admin console

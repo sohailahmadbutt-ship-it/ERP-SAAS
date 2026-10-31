@@ -5,6 +5,7 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto, RESERVED_SLUGS, SignupDto } from './dto';
 import { ensureInventoryDefaults } from '../inventory/defaults';
+import { ensureSalesDefaults } from '../sales/defaults';
 
 export interface JwtPayload {
   sub: string;
@@ -35,6 +36,7 @@ export class AuthService {
           data: { tenantId: tenant.id, email: dto.email.toLowerCase(), name: dto.name, passwordHash, role: 'OWNER' },
         });
         await ensureInventoryDefaults(tx, tenant.id);
+        await ensureSalesDefaults(tx, tenant.id);
         return { tenant, user };
       });
       return this.session(tenant, user);

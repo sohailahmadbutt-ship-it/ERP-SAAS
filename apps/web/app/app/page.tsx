@@ -6,7 +6,8 @@ import { useSession } from '@/lib/session';
 
 const MODULES: { name: string; href?: string }[] = [
   { name: 'Contacts', href: '/app/contacts' },
-  { name: 'Sales' },
+  { name: 'Sales', href: '/app/sales' },
+  { name: 'Invoices', href: '/app/invoices' },
   { name: 'Purchase' },
   { name: 'Products', href: '/app/products' },
   { name: 'Inventory', href: '/app/inventory' },
