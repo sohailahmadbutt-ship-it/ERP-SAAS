@@ -176,7 +176,7 @@ export class PurchaseOrdersController {
             // Net of discount, before tax.
             unitCost: round2(line.subtotal.div(line.quantity)).toNumber(),
             reference: order.number,
-          });
+          }, { fromPurchase: true });
         }
         await tx.purchaseOrderLine.update({ where: { id: line.id }, data: { receivedQty: line.receivedQty.plus(qty) } });
         changed = true;

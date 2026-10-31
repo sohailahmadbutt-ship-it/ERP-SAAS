@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { InvoiceStatus, Prisma, Tenant } from '@prisma/client';
+import { AccountingService } from '../accounting/accounting.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { CurrentTenant } from '../tenancy/current-tenant.decorator';
@@ -21,7 +22,7 @@ const invoiceInclude = {
 @Controller('invoices')
 @UseGuards(AuthGuard)
 export class InvoicesController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private accounting: AccountingService) {}
 
   @Get()
   list(@CurrentTenant() tenant: Tenant, @Query() query: DocQuery) {
@@ -112,22 +113,23 @@ export class InvoicesController {
 
   /** Finalises a draft and gives it the next invoice number. */
   @Post(':id/post')
-  post(@CurrentTenant() tenant: Tenant, @Param('id', ParseUUIDPipe) id: string) {
+  post(@CurrentTenant() tenant: Tenant, @Req() req: Req, @Param('id', ParseUUIDPipe) id: string) {
     return this.prisma.withTenant(tenant.id, async (tx) => {
       const inv = await this.load(tx, id);
       if (inv.status !== 'DRAFT') throw new BadRequestException('Only draft invoices can be posted');
       if ((await tx.invoiceLine.count({ where: { invoiceId: id } })) === 0) throw new BadRequestException('Add at least one line first');
-      await tx.invoice.update({
+      const posted = await tx.invoice.update({
         where: { id },
         data: { status: inv.total.isZero() ? 'PAID' : 'POSTED', number: await nextNumber(tx, tenant.id, 'INV'), postedAt: new Date() },
       });
+      await this.accounting.invoicePosted(tx, tenant.id, req.auth.sub, posted);
       return tx.invoice.findUniqueOrThrow({ where: { id }, include: invoiceInclude });
     });
   }
 
   /** Cancels a draft or an unpaid posted invoice and frees its order lines to be invoiced again. */
   @Post(':id/cancel')
-  cancel(@CurrentTenant() tenant: Tenant, @Param('id', ParseUUIDPipe) id: string) {
+  cancel(@CurrentTenant() tenant: Tenant, @Req() req: Req, @Param('id', ParseUUIDPipe) id: string) {
     return this.prisma.withTenant(tenant.id, async (tx) => {
       const inv = await this.load(tx, id);
       if (inv.status === 'CANCELLED') throw new BadRequestException('Already cancelled');
@@ -137,6 +139,7 @@ export class InvoicesController {
       for (const l of lines) {
         await tx.salesOrderLine.update({ where: { id: l.orderLineId! }, data: { invoicedQty: { decrement: l.quantity } } });
       }
+      if (inv.status !== 'DRAFT') await this.accounting.reverse(tx, tenant.id, req.auth.sub, 'INVOICE', id, new Date(), `Cancellation of ${inv.number}`);
       await tx.invoice.update({ where: { id }, data: { status: 'CANCELLED' } });
       return tx.invoice.findUniqueOrThrow({ where: { id }, include: invoiceInclude });
     });
@@ -150,7 +153,7 @@ export class InvoicesController {
       const balance = inv.total.minus(inv.amountPaid);
       const amount = new Prisma.Decimal(dto.amount);
       if (amount.gt(balance)) throw new BadRequestException(`The balance due is ${balance.toFixed(2)}`);
-      await tx.payment.create({
+      const payment = await tx.payment.create({
         data: {
           tenantId: tenant.id,
           invoiceId: id,
@@ -161,6 +164,7 @@ export class InvoicesController {
           createdById: req.auth.sub,
         },
       });
+      await this.accounting.invoicePayment(tx, tenant.id, req.auth.sub, { ...payment, customerId: inv.customerId, reference: inv.number });
       const amountPaid = inv.amountPaid.plus(amount);
       await tx.invoice.update({ where: { id }, data: { amountPaid, status: amountPaid.equals(inv.total) ? 'PAID' : 'POSTED' } });
       return tx.invoice.findUniqueOrThrow({ where: { id }, include: invoiceInclude });

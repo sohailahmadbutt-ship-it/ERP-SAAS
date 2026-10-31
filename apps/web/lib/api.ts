@@ -281,3 +281,38 @@ export interface Bill {
   lines?: DocLine[];
   payments?: Payment[];
 }
+
+export interface Account {
+  id: string;
+  code: string;
+  name: string;
+  type: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
+  systemKey: string | null;
+  archived: boolean;
+  balance?: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  number: string;
+  date: string;
+  memo: string | null;
+  source: string;
+  reference: string | null;
+  lines: {
+    id: string;
+    debit: string;
+    credit: string;
+    description: string | null;
+    account: { id: string; code: string; name: string };
+    contact: { id: string; name: string } | null;
+  }[];
+}
+
+export const ACCOUNT_TYPE_LABELS: Record<Account['type'], string> = {
+  ASSET: 'Assets',
+  LIABILITY: 'Liabilities',
+  EQUITY: 'Equity',
+  INCOME: 'Income',
+  EXPENSE: 'Expenses',
+};
