@@ -7,6 +7,8 @@ import { SessionContext } from '@/lib/session';
 
 const NAV = [
   { href: '/app', label: 'Home' },
+  { href: '/app/sales', label: 'Sales' },
+  { href: '/app/invoices', label: 'Invoices' },
   { href: '/app/contacts', label: 'Contacts' },
   { href: '/app/products', label: 'Products' },
   { href: '/app/inventory', label: 'Inventory' },

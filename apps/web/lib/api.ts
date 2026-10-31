@@ -147,3 +147,96 @@ export const MOVE_LABELS: Record<StockMove['type'], string> = {
   TRANSFER_OUT: 'Transfer out',
   TRANSFER_IN: 'Transfer in',
 };
+
+export interface Tax {
+  id: string;
+  name: string;
+  rate: string;
+  archived: boolean;
+}
+
+export interface DocLine {
+  id: string;
+  position: number;
+  productId: string;
+  product: { id: string; name: string; sku: string | null; type?: 'GOODS' | 'SERVICE'; unit: { code: string } };
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  discountPct: string;
+  taxId: string | null;
+  taxRate: string;
+  subtotal: string;
+  taxAmount: string;
+  total: string;
+  deliveredQty?: string;
+  invoicedQty?: string;
+}
+
+export interface Party {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  taxId?: string | null;
+}
+
+export interface SalesOrder {
+  id: string;
+  number: string;
+  status: 'QUOTATION' | 'CONFIRMED' | 'CANCELLED';
+  customerId: string;
+  customer: Party;
+  warehouseId: string;
+  warehouse?: { id: string; code: string; name: string };
+  orderDate: string;
+  validUntil: string | null;
+  currency: string;
+  notes: string | null;
+  subtotal: string;
+  taxTotal: string;
+  total: string;
+  lines?: DocLine[];
+  invoices?: { id: string; number: string | null; status: Invoice['status']; total: string; amountPaid: string }[];
+}
+
+export interface Payment {
+  id: string;
+  paymentDate: string;
+  amount: string;
+  method: string;
+  reference: string | null;
+}
+
+export interface Invoice {
+  id: string;
+  number: string | null;
+  status: 'DRAFT' | 'POSTED' | 'PAID' | 'CANCELLED';
+  customerId: string;
+  customer: Party;
+  order?: { id: string; number: string } | null;
+  orderId: string | null;
+  invoiceDate: string;
+  dueDate: string | null;
+  currency: string;
+  notes: string | null;
+  subtotal: string;
+  taxTotal: string;
+  total: string;
+  amountPaid: string;
+  lines?: DocLine[];
+  payments?: Payment[];
+}
+
+export const money = (v: string | number, currency?: string) =>
+  `${currency ? `${currency} ` : ''}${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+export const qty = (v: string | number) => Number(v).toLocaleString(undefined, { maximumFractionDigits: 3 });
+
+export const day = (v: string | null | undefined) => (v ? new Date(v).toLocaleDateString() : '');
+
+/** yyyy-mm-dd for <input type="date">. */
+export const isoDay = (v: string | null | undefined) => (v ? v.slice(0, 10) : '');
