@@ -92,3 +92,58 @@ export interface Page<T> {
   page: number;
   pageSize: number;
 }
+
+export interface Unit {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface Warehouse {
+  id: string;
+  code: string;
+  name: string;
+  address: string | null;
+  archived: boolean;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  sku: string | null;
+  barcode: string | null;
+  type: 'GOODS' | 'SERVICE';
+  unitId: string;
+  unit?: { code: string };
+  salePrice: string;
+  cost: string;
+  description: string | null;
+  archived: boolean;
+  onHand?: string | null;
+  stock?: { warehouse: { id: string; code: string; name: string }; quantity: string }[];
+}
+
+export interface StockMove {
+  id: string;
+  type: 'RECEIPT' | 'DELIVERY' | 'ADJUSTMENT' | 'TRANSFER_OUT' | 'TRANSFER_IN';
+  quantity: string;
+  reference: string | null;
+  note: string | null;
+  createdAt: string;
+  product: { id: string; name: string; sku: string | null };
+  warehouse: { id: string; code: string };
+}
+
+export interface StockLevel {
+  product: { id: string; name: string; sku: string | null; unit: string };
+  warehouse: { id: string; code: string; name: string };
+  quantity: string;
+}
+
+export const MOVE_LABELS: Record<StockMove['type'], string> = {
+  RECEIPT: 'Receipt',
+  DELIVERY: 'Delivery',
+  ADJUSTMENT: 'Count adjustment',
+  TRANSFER_OUT: 'Transfer out',
+  TRANSFER_IN: 'Transfer in',
+};
