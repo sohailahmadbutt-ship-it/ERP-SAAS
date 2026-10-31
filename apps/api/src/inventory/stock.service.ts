@@ -51,6 +51,7 @@ export class StockService {
     const qty = new D(dto.quantity ?? 0);
     switch (dto.kind) {
       case 'RECEIPT':
+        if (dto.unitCost !== undefined) await this.updateAverageCost(tx, product.id, qty, new D(dto.unitCost));
         return [await move(dto.warehouseId, 'RECEIPT', qty, { unitCost: dto.unitCost })];
 
       case 'DELIVERY': {
@@ -73,6 +74,21 @@ export class StockService {
         return [await move(dto.warehouseId, 'ADJUSTMENT', diff)];
       }
     }
+  }
+
+  /**
+   * Weighted average cost across all warehouses:
+   * (on hand × current cost + received × unit cost) / (on hand + received).
+   * With nothing (or less than nothing) on hand, the new unit cost is used.
+   */
+  private async updateAverageCost(tx: Tx, productId: string, qty: Prisma.Decimal, unitCost: Prisma.Decimal) {
+    await tx.$executeRaw`SELECT id FROM products WHERE id = ${productId}::uuid FOR UPDATE`;
+    const product = await tx.product.findUniqueOrThrow({ where: { id: productId }, select: { cost: true } });
+    const onHand = (await tx.stockMove.aggregate({ where: { productId }, _sum: { quantity: true } }))._sum.quantity ?? new D(0);
+    const cost = onHand.lte(0)
+      ? unitCost
+      : onHand.times(product.cost).plus(qty.times(unitCost)).div(onHand.plus(qty));
+    await tx.product.update({ where: { id: productId }, data: { cost: cost.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP) } });
   }
 
   private async ensureAvailable(tx: Tx, productId: string, warehouseId: string, qty: Prisma.Decimal) {
