@@ -15,6 +15,10 @@ This is an original codebase. It does not use or derive from Odoo.
   transaction with `app.tenant_id` set (`PrismaService.withTenant`), so a bug
   in application code still can't read another company's rows.
 
+## Deploying
+
+See [deploy/README.md](deploy/README.md) for running it on a server with Docker and automatic HTTPS.
+
 ## Running locally
 
 ```bash
