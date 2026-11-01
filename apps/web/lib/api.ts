@@ -33,6 +33,23 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   if (slug) headers['X-Tenant'] = slug;
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
+  return request<T>(path, headers, init);
+}
+
+// The platform console uses its own token and never sends a company.
+const PLATFORM_TOKEN_KEY = 'erp_platform_token';
+export const getPlatformToken = () => (typeof window === 'undefined' ? null : localStorage.getItem(PLATFORM_TOKEN_KEY));
+export const setPlatformToken = (t: string) => localStorage.setItem(PLATFORM_TOKEN_KEY, t);
+export const clearPlatformToken = () => localStorage.removeItem(PLATFORM_TOKEN_KEY);
+
+export async function platformApi<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getPlatformToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return request<T>(`/platform${path}`, headers, init);
+}
+
+async function request<T>(path: string, headers: Record<string, string>, init: { method?: string; body?: unknown }): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     method: init.method ?? 'GET',
     headers,
@@ -52,11 +69,72 @@ export interface User {
   email: string;
   role: 'OWNER' | 'ADMIN' | 'MEMBER';
 }
+export type SubscriptionState = 'trial' | 'trial_expired' | 'active' | 'past_due' | 'expired' | 'suspended' | 'canceled';
+export interface Access {
+  state: SubscriptionState;
+  access: 'full' | 'read_only';
+  daysLeft: number | null;
+}
+export const STATE_LABELS: Record<SubscriptionState, string> = {
+  trial: 'Free trial',
+  trial_expired: 'Trial ended',
+  active: 'Active',
+  past_due: 'Payment due',
+  expired: 'Expired',
+  suspended: 'Suspended',
+  canceled: 'Canceled',
+};
+export interface Plan {
+  id?: string;
+  code: string;
+  name: string;
+  priceMonthly: string;
+  currency: string;
+  maxUsers: number | null;
+  description: string | null;
+  active?: boolean;
+  sortOrder?: number;
+}
+export interface PlatformInvoice {
+  id: string;
+  number: string;
+  tenantId: string;
+  planCode: string;
+  planName: string;
+  amount: string;
+  currency: string;
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+  status: 'OPEN' | 'PAID' | 'VOID';
+  paymentReference: string | null;
+  reportedAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  tenant?: { id: string; name: string; slug: string };
+}
+export interface BillingOverview extends Access {
+  plan: Plan;
+  status: 'TRIALING' | 'ACTIVE' | 'SUSPENDED' | 'CANCELED';
+  statusNote: string | null;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  userCount: number;
+  plans: Plan[];
+  invoices: PlatformInvoice[];
+  paymentInstructions: string;
+}
+
 export interface Tenant {
   id: string;
   slug: string;
   name: string;
   plan: string;
+  status: BillingOverview['status'];
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  statusNote: string | null;
+  createdAt: string;
   currency: string;
   taxId: string | null;
   email: string | null;

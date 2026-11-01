@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard } from './auth.guard';
 import { AuthService, publicUser } from './auth.service';
 import { LoginDto, SignupDto } from './dto';
+import { accessOf } from '../billing/subscription';
 
 @Controller('auth')
 export class AuthController {
@@ -25,6 +26,6 @@ export class AuthController {
   @UseGuards(AuthGuard)
   async me(@Req() req: Request & { auth: { sub: string } }, @CurrentTenant() tenant: Tenant) {
     const user = await this.prisma.withTenant(tenant.id, (tx) => tx.user.findUniqueOrThrow({ where: { id: req.auth.sub } }));
-    return { tenant, user: publicUser(user) };
+    return { tenant, user: publicUser(user), subscription: accessOf(tenant) };
   }
 }

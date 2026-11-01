@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { api, ApiError, clearToken, setToken, Tenant, User } from '@/lib/api';
+import { Access, api, ApiError, clearToken, setToken, Tenant, User } from '@/lib/api';
 import { SessionContext } from '@/lib/session';
 
 const NAV = [
@@ -18,13 +18,15 @@ const NAV = [
   { href: '/app/settings', label: 'Settings' },
 ];
 
+type Me = { tenant: Tenant; user: User; subscription: Access };
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   const path = usePathname();
-  const [me, setMe] = useState<{ tenant: Tenant; user: User }>();
+  const [me, setMe] = useState<Me>();
   const [error, setError] = useState('');
 
   const reload = useCallback(async () => {
-    setMe(await api<{ tenant: Tenant; user: User }>('/auth/me'));
+    setMe(await api<Me>('/auth/me'));
   }, []);
 
   useEffect(() => {
@@ -62,7 +64,32 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           {me.user.name} · <button className="link" onClick={logout}>Sign out</button>
         </span>
       </header>
+      <SubscriptionBanner sub={me.subscription} note={me.tenant.statusNote} />
       <main className="wrap">{children}</main>
     </SessionContext.Provider>
   );
+}
+
+/** Tells people when the trial is ending or the company has gone read-only. */
+function SubscriptionBanner({ sub, note }: { sub: Access; note: string | null }) {
+  const link = <Link href="/app/settings/billing">Billing</Link>;
+  const plural = (n: number | null) => `${n} day${n === 1 ? '' : 's'}`;
+  switch (sub.state) {
+    case 'trial':
+      return sub.daysLeft !== null && sub.daysLeft <= 7 ? (
+        <div className="banner">Your free trial ends in {plural(sub.daysLeft)}. Choose a plan in {link} to keep going.</div>
+      ) : null;
+    case 'past_due':
+      return <div className="banner">Your subscription payment is overdue. You have {plural(sub.daysLeft)} before the company becomes read-only. Pay in {link}.</div>;
+    case 'trial_expired':
+      return <div className="banner danger">Your free trial has ended, so the company is read-only. Choose a plan in {link} to keep making changes.</div>;
+    case 'expired':
+      return <div className="banner danger">Your subscription has expired, so the company is read-only. Pay the open invoice in {link}.</div>;
+    case 'canceled':
+      return <div className="banner danger">This subscription was canceled, so the company is read-only. Choose a plan in {link} to reactivate it.</div>;
+    case 'suspended':
+      return <div className="banner danger">This company has been suspended{note ? `: ${note}` : ''}. Contact support.</div>;
+    default:
+      return null;
+  }
 }

@@ -50,6 +50,26 @@ Run the tests (needs the database up): `pnpm test`.
    `@@unique([id, tenantId])` and write the relation as
    `@relation(fields: [productId, tenantId], references: [id, tenantId], onDelete: NoAction)`.
 
+## Subscriptions and the platform console
+
+Every new company starts a 14-day trial on the plan it picks (Business by default). Plans and their prices live in the `plans` table and are edited from the console.
+
+- Owners choose a plan under **Settings > Billing**. Subscribing issues a monthly invoice (`PINV-00001`, ...). Payment is offline for now: the owner pays by bank transfer or wallet and enters the reference, and the platform marks the invoice paid from the console, which activates the company until the end of that period.
+- Renewal invoices are issued a week before a paid period ends: when the owner opens Billing, or for everyone at once with **Issue renewal invoices** in the console.
+- After a paid period ends there is a 7-day grace period. When a trial or grace period runs out, or the platform suspends or cancels a company, it becomes read-only: reads still work, but every change returns `402` until it pays. Billing itself always works.
+- Each plan can cap the number of users.
+
+The console is at `/platform` on the main domain (never on a company subdomain). Create the first admin after building the API:
+
+```bash
+cd apps/api && pnpm build
+PLATFORM_ADMIN_PASSWORD='at-least-12-characters' pnpm platform:create-admin you@example.com "Your Name"
+```
+
+Console tokens carry a `platform` scope and never work on company routes, and company tokens never work on `/platform`. Console queries run through `PrismaService.asPlatform`, which lets Postgres show every company's platform invoices and read its users. Every other tenant table stays hidden from it.
+
+Set `PAYMENT_INSTRUCTIONS` to the bank account details companies should pay into.
+
 ## Roadmap
 
 1. ✅ Monorepo, CI, tenant signup, subdomain routing, auth, users and roles
@@ -58,5 +78,5 @@ Run the tests (needs the database up): `pnpm test`.
 4. ✅ Sales: quotation → order → delivery → invoice → payment, taxes, printable documents
 5. ✅ Purchase: RFQ → order → receipt (average cost) → vendor bill → payment
 6. ✅ Accounting: chart of accounts, automatic double-entry postings, journal, ledger, P&L, balance sheet, trial balance
-7. Subscription billing and platform admin console
+7. ✅ Subscription billing and platform admin console: plans, 14-day trials, user limits, invoices paid by bank transfer, read-only mode when unpaid
 8. Point of Sale, CRM

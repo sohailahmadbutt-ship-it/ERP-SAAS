@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api, Tax } from '@/lib/api';
 import { useSession } from '@/lib/session';
+import { SettingsTabs } from '@/components/SettingsTabs';
 
 const FIELDS = [
   { key: 'name', label: 'Company name' },
@@ -41,6 +42,7 @@ export default function Settings() {
 
   return (
     <>
+    <SettingsTabs />
     <section className="card" style={{ maxWidth: 560 }}>
       <h2>Company settings</h2>
       <p className="muted">Your company address: {tenant.slug}</p>
