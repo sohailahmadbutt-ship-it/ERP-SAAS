@@ -459,3 +459,61 @@ export interface PosOrder {
   payments: { method: PosMethod; amount: string; reference: string | null }[];
   session?: { id: string; number: string; register: { id: string; name: string; receiptFooter: string | null } };
 }
+
+// ---- CRM -------------------------------------------------------------------
+
+export interface CrmStage {
+  id: string;
+  name: string;
+  position: number;
+  probability: number;
+  isWon: boolean;
+  isLost: boolean;
+  archived: boolean;
+}
+
+export type CrmActivityType = 'CALL' | 'MEETING' | 'EMAIL' | 'TASK' | 'NOTE';
+export const ACTIVITY_LABELS: Record<CrmActivityType, string> = { CALL: 'Call', MEETING: 'Meeting', EMAIL: 'Email', TASK: 'To-do', NOTE: 'Note' };
+
+export interface CrmActivity {
+  id: string;
+  leadId: string;
+  type: CrmActivityType;
+  summary: string;
+  dueAt: string | null;
+  doneAt: string | null;
+  assignedToId: string | null;
+  createdById: string;
+  createdAt: string;
+  lead?: { id: string; title: string; companyName: string | null; contact: { name: string } | null };
+}
+
+export interface CrmLead {
+  id: string;
+  title: string;
+  stageId: string;
+  stage?: CrmStage;
+  contactId: string | null;
+  contact: { id: string; name: string; email?: string | null; phone?: string | null } | null;
+  companyName: string | null;
+  personName: string | null;
+  email: string | null;
+  phone: string | null;
+  source: string | null;
+  ownerId: string | null;
+  expectedRevenue: string;
+  expectedClose: string | null;
+  priority: number;
+  notes: string | null;
+  lostReason: string | null;
+  closedAt: string | null;
+  salesOrder?: { id: string; number: string; status: string; total: string } | null;
+  salesOrderId: string | null;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  activities: CrmActivity[];
+}
+
+/** Who a lead is with: the linked contact, else the prospect's company or name. */
+export const leadParty = (l: Pick<CrmLead, 'contact' | 'companyName' | 'personName'>) => l.contact?.name ?? l.companyName ?? l.personName ?? '';

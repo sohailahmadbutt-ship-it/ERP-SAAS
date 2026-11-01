@@ -111,3 +111,23 @@ button.big { width: 100%; padding: 14px; font-size: 18px; }
 .receipt table td { border: 0; padding: 1px 0; font-size: 12px; }
 .receipt hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
 @media print { @page { size: 80mm auto; margin: 0; } .receipt { margin: 0; width: 100%; } }
+
+/* CRM pipeline board */
+.wrap:has(.board) { max-width: 1400px; }
+.board { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+.board-col { flex: 1 0 185px; background: #eef1f6; border-radius: 10px; padding: 10px; min-height: 200px; }
+.board-col.drop { outline: 2px dashed var(--accent); }
+.board-col.won { background: #e5f6ea; }
+.board-col.lost { background: #fbeaea; }
+.board-col h4 { margin: 0 0 2px; display: flex; justify-content: space-between; }
+.board-col .sum { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.lead-card { display: block; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 8px; color: var(--fg); text-decoration: none; cursor: grab; font-size: 14px; }
+.lead-card:hover { border-color: var(--accent); }
+.lead-card .muted { font-size: 12px; }
+.stars { color: #e0a100; letter-spacing: 1px; }
+.due.late { color: #b42318; }
+.timeline { list-style: none; padding: 0; margin: 0; }
+.timeline li { border-bottom: 1px solid var(--line); padding: 10px 0; display: flex; gap: 10px; align-items: flex-start; }
+.timeline li .what { flex: 1; }
+.timeline li.done .what { color: var(--muted); }
+.timeline input[type=checkbox] { width: auto; margin-top: 3px; }

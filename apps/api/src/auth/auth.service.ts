@@ -7,6 +7,7 @@ import { LoginDto, RESERVED_SLUGS, SignupDto } from './dto';
 import { ensureInventoryDefaults } from '../inventory/defaults';
 import { ensureSalesDefaults } from '../sales/defaults';
 import { ensureAccounts } from '../accounting/chart';
+import { ensureCrmStages } from '../crm/defaults';
 import { addDays, TRIAL_DAYS } from '../billing/subscription';
 
 export interface JwtPayload {
@@ -44,6 +45,7 @@ export class AuthService {
         await ensureInventoryDefaults(tx, tenant.id);
         await ensureSalesDefaults(tx, tenant.id);
         await ensureAccounts(tx, tenant.id);
+        await ensureCrmStages(tx, tenant.id);
         return { tenant, user };
       });
       return this.session(tenant, user);
