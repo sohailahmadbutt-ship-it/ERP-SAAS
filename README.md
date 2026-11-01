@@ -79,4 +79,5 @@ Set `PAYMENT_INSTRUCTIONS` to the bank account details companies should pay into
 5. ✅ Purchase: RFQ → order → receipt (average cost) → vendor bill → payment
 6. ✅ Accounting: chart of accounts, automatic double-entry postings, journal, ledger, P&L, balance sheet, trial balance
 7. ✅ Subscription billing and platform admin console: plans, 14-day trials, user limits, invoices paid by bank transfer, read-only mode when unpaid
-8. Point of Sale, CRM
+8. ✅ Point of sale: registers, cashier shifts, barcode scanning, tax-inclusive prices, split payments, receipts, refunds, cash counts
+9. CRM: leads, pipeline, activities

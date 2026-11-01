@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { AccountingService } from '../accounting/accounting.service';
+import { AccountingService, StockOrigin } from '../accounting/accounting.service';
 import { Prisma, StockMoveType } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import type { Tx } from '../prisma/prisma.service';
@@ -27,17 +27,17 @@ export class StockService {
 
   /**
    * Records one stock operation and its journal entry. Must run inside a
-   * tenant transaction. `fromPurchase` marks receipts against a purchase
-   * order, which are valued against "goods received, not yet billed".
+   * tenant transaction. `origin` says where received goods came from (a
+   * purchase order, or a customer return), which decides how they are valued.
    */
-  async apply(tx: Tx, tenantId: string, userId: string, dto: StockMoveInput, opts: { fromPurchase?: boolean } = {}) {
+  async apply(tx: Tx, tenantId: string, userId: string, dto: StockMoveInput, origin: StockOrigin = {}) {
     const moves = await this.applyMoves(tx, tenantId, userId, dto);
     if (moves.length) {
       // Valued at the receipt's unit cost, otherwise the product's current average cost.
       const cost = dto.kind === 'RECEIPT' && dto.unitCost !== undefined
         ? new D(dto.unitCost)
         : (await tx.product.findUniqueOrThrow({ where: { id: dto.productId }, select: { cost: true } })).cost;
-      for (const m of moves) await this.accounting.stockMoved(tx, tenantId, userId, m, cost, !!opts.fromPurchase);
+      for (const m of moves) await this.accounting.stockMoved(tx, tenantId, userId, m, cost, origin);
     }
     return moves;
   }

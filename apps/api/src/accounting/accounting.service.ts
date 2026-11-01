@@ -27,6 +27,14 @@ export interface Posting {
   lines: PostingLine[];
 }
 
+/** Where received stock came from, which decides the account it is valued against. */
+export interface StockOrigin {
+  /** A receipt against a purchase order. */
+  fromPurchase?: boolean;
+  /** Goods a customer returned. */
+  customerReturn?: boolean;
+}
+
 /** Money received or paid by cash goes to Cash; everything else to Bank. */
 export const cashKey = (method: string): SystemKey => (method === 'CASH' ? 'CASH' : 'BANK');
 
@@ -177,13 +185,16 @@ export class AccountingService {
   /**
    * Stock valued at cost. Receipts from a purchase order credit "goods
    * received, not yet billed"; other receipts and counts go to stock
-   * adjustments; deliveries go to cost of goods sold. Transfers don't
-   * change value, so they post nothing.
+   * adjustments; deliveries, and goods customers bring back, go to cost of
+   * goods sold. Transfers don't change value, so they post nothing.
    */
-  stockMoved(tx: Tx, tenantId: string, userId: string, m: { id: string; type: string; quantity: Prisma.Decimal; reference: string | null; createdAt: Date }, unitCost: Prisma.Decimal, fromPurchase: boolean) {
+  stockMoved(tx: Tx, tenantId: string, userId: string, m: { id: string; type: string; quantity: Prisma.Decimal; reference: string | null; createdAt: Date }, unitCost: Prisma.Decimal, origin: StockOrigin = {}) {
     if (m.type === 'TRANSFER_IN' || m.type === 'TRANSFER_OUT') return null;
     const value = round2(m.quantity.times(unitCost));
-    const counter: SystemKey = m.type === 'DELIVERY' ? 'COGS' : m.type === 'RECEIPT' && fromPurchase ? 'GRNI' : 'STOCK_ADJUSTMENT';
+    const counter: SystemKey =
+      m.type === 'DELIVERY' || (m.type === 'RECEIPT' && origin.customerReturn) ? 'COGS'
+      : m.type === 'RECEIPT' && origin.fromPurchase ? 'GRNI'
+      : 'STOCK_ADJUSTMENT';
     return this.post(tx, tenantId, userId, {
       date: m.createdAt,
       memo: `Stock ${m.type.toLowerCase()}${m.reference ? ` ${m.reference}` : ''}`,
@@ -194,6 +205,41 @@ export class AccountingService {
       lines: [
         { key: 'INVENTORY', debit: value },
         { key: counter, credit: value },
+      ],
+    });
+  }
+
+  /**
+   * Point-of-sale order: Dr cash / bank per payment method, Cr sales and
+   * output tax. Refunds carry negative amounts, so they post the mirror image.
+   */
+  posOrder(tx: Tx, tenantId: string, userId: string, o: { id: string; number: string; createdAt: Date; customerId: string | null; subtotal: Prisma.Decimal; taxTotal: Prisma.Decimal; payments: { method: string; amount: Prisma.Decimal }[] }) {
+    return this.post(tx, tenantId, userId, {
+      date: o.createdAt,
+      memo: `Point of sale ${o.number}`,
+      source: 'POS_ORDER',
+      sourceId: o.id,
+      reference: o.number,
+      lines: [
+        ...o.payments.map((p) => ({ key: cashKey(p.method), debit: p.amount, description: p.method.toLowerCase() })),
+        { key: 'SALES' as const, credit: o.subtotal, contactId: o.customerId },
+        { key: 'TAX_OUTPUT' as const, credit: o.taxTotal },
+      ],
+    });
+  }
+
+  /** Cash count at the end of a shift: any shortage or surplus goes to "cash over and short". */
+  posSessionClosed(tx: Tx, tenantId: string, userId: string, s: { id: string; number: string; closedAt: Date; difference: Prisma.Decimal }) {
+    return this.post(tx, tenantId, userId, {
+      date: s.closedAt,
+      memo: `Cash count difference, ${s.number}`,
+      source: 'POS_SESSION',
+      sourceId: s.id,
+      reference: s.number,
+      // difference > 0 is extra cash: Dr cash / Cr over-and-short.
+      lines: [
+        { key: 'CASH', debit: s.difference },
+        { key: 'CASH_DIFFERENCE', credit: s.difference },
       ],
     });
   }
