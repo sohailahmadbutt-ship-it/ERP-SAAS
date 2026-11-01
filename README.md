@@ -80,4 +80,4 @@ Set `PAYMENT_INSTRUCTIONS` to the bank account details companies should pay into
 6. ✅ Accounting: chart of accounts, automatic double-entry postings, journal, ledger, P&L, balance sheet, trial balance
 7. ✅ Subscription billing and platform admin console: plans, 14-day trials, user limits, invoices paid by bank transfer, read-only mode when unpaid
 8. ✅ Point of sale: registers, cashier shifts, barcode scanning, tax-inclusive prices, split payments, receipts, refunds, cash counts
-9. CRM: leads, pipeline, activities
+9. ✅ CRM: pipeline board with drag and drop, leads and prospects, activities and to-dos, quotations from leads, weighted forecast

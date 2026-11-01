@@ -56,6 +56,9 @@ model Tenant {
   posOrders    PosOrder[]
   posOrderLines PosOrderLine[]
   posPayments  PosPayment[]
+  crmStages    CrmStage[]
+  crmLeads     CrmLead[]
+  crmActivities CrmActivity[]
 
   @@map("tenants")
 }
@@ -117,6 +120,7 @@ model Contact {
   bills       Bill[]
   journalLines JournalLine[]
   posOrders   PosOrder[]
+  crmLeads    CrmLead[]
 
   @@unique([id, tenantId])
   @@index([tenantId, name])
@@ -292,6 +296,7 @@ model SalesOrder {
   updatedAt   DateTime         @updatedAt @map("updated_at")
   lines       SalesOrderLine[]
   invoices    Invoice[]
+  crmLeads    CrmLead[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, number])
@@ -848,4 +853,93 @@ model PosPayment {
 
   @@index([tenantId, orderId])
   @@map("pos_payments")
+}
+
+// ---------------------------------------------------------------------------
+// CRM
+
+/// A column of the sales pipeline. Won and lost stages close the lead.
+model CrmStage {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  position    Int
+  /// Chance of winning, in percent, used for the weighted pipeline.
+  probability Int       @default(0)
+  isWon       Boolean   @default(false) @map("is_won")
+  isLost      Boolean   @default(false) @map("is_lost")
+  archived    Boolean   @default(false)
+  leads       CrmLead[]
+
+  @@unique([id, tenantId])
+  @@map("crm_stages")
+}
+
+/// A lead or opportunity. It can start as a bare prospect and be linked to a contact later.
+model CrmLead {
+  id              String      @id @default(uuid()) @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title           String
+  stageId         String      @map("stage_id") @db.Uuid
+  stage           CrmStage    @relation(fields: [stageId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  contactId       String?     @map("contact_id") @db.Uuid
+  contact         Contact?    @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  /// Prospect details, used until the lead is linked to a contact.
+  companyName     String?     @map("company_name")
+  personName      String?     @map("person_name")
+  email           String?
+  phone           String?
+  /// Where the lead came from: website, referral, walk-in...
+  source          String?
+  /// The salesperson (a user id).
+  ownerId         String?     @map("owner_id") @db.Uuid
+  expectedRevenue Decimal     @default(0) @map("expected_revenue") @db.Decimal(14, 2)
+  expectedClose   DateTime?   @map("expected_close") @db.Date
+  /// 0 to 3 stars.
+  priority        Int         @default(0)
+  notes           String?
+  lostReason      String?     @map("lost_reason")
+  closedAt        DateTime?   @map("closed_at")
+  /// The quotation the lead was turned into.
+  salesOrderId    String?     @map("sales_order_id") @db.Uuid
+  salesOrder      SalesOrder? @relation(fields: [salesOrderId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  archived        Boolean     @default(false)
+  createdById     String      @map("created_by_id") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  activities      CrmActivity[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, stageId])
+  @@map("crm_leads")
+}
+
+enum CrmActivityType {
+  CALL
+  MEETING
+  EMAIL
+  TASK
+  NOTE
+}
+
+/// A planned or logged interaction on a lead. Notes are logged as done straight away.
+model CrmActivity {
+  id           String          @id @default(uuid()) @db.Uuid
+  tenantId     String          @map("tenant_id") @db.Uuid
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId       String          @map("lead_id") @db.Uuid
+  lead         CrmLead         @relation(fields: [leadId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  type         CrmActivityType
+  summary      String
+  dueAt        DateTime?       @map("due_at")
+  doneAt       DateTime?       @map("done_at")
+  assignedToId String?         @map("assigned_to_id") @db.Uuid
+  createdById  String          @map("created_by_id") @db.Uuid
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  @@index([tenantId, leadId])
+  @@index([tenantId, assignedToId, doneAt])
+  @@map("crm_activities")
 }
