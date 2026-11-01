@@ -10,6 +10,7 @@
     "test": "jest --runInBand",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:generate": "prisma generate",
+    "platform:create-admin": "node dist/platform/create-admin.js",
     "postinstall": "prisma generate"
   },
   "jest": {

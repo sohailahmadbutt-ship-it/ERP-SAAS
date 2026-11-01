@@ -7,6 +7,7 @@ import { LoginDto, RESERVED_SLUGS, SignupDto } from './dto';
 import { ensureInventoryDefaults } from '../inventory/defaults';
 import { ensureSalesDefaults } from '../sales/defaults';
 import { ensureAccounts } from '../accounting/chart';
+import { addDays, TRIAL_DAYS } from '../billing/subscription';
 
 export interface JwtPayload {
   sub: string;
@@ -31,7 +32,11 @@ export class AuthService {
     const passwordHash = await this.hash(dto.password);
     try {
       const { tenant, user } = await this.prisma.$transaction(async (tx) => {
-        const tenant = await tx.tenant.create({ data: { slug, name: dto.companyName } });
+        const plan = await tx.plan.findFirst({ where: { code: dto.plan ?? 'business', active: true } });
+        if (!plan) throw new BadRequestException('Unknown plan');
+        const tenant = await tx.tenant.create({
+          data: { slug, name: dto.companyName, plan: plan.code, status: 'TRIALING', trialEndsAt: addDays(new Date(), TRIAL_DAYS) },
+        });
         await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenant.id}, true)`;
         const user = await tx.user.create({
           data: { tenantId: tenant.id, email: dto.email.toLowerCase(), name: dto.name, passwordHash, role: 'OWNER' },

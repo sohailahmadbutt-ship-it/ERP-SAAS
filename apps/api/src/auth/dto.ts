@@ -20,6 +20,10 @@ export class SignupDto {
 
   @IsString() @MinLength(8) @MaxLength(128)
   password: string;
+
+  /** Plan code to trial; defaults to business. */
+  @IsOptional() @IsString() @MaxLength(40)
+  plan?: string;
 }
 
 export class LoginDto {

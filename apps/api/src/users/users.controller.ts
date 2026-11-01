@@ -1,4 +1,4 @@
-import { Body, ConflictException, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, ForbiddenException, Get, Post, UseGuards } from '@nestjs/common';
 import { Prisma, Tenant } from '@prisma/client';
 import { AuthGuard, Roles } from '../auth/auth.guard';
 import { AuthService, publicUser } from '../auth/auth.service';
@@ -22,11 +22,18 @@ export class UsersController {
   async create(@CurrentTenant() tenant: Tenant, @Body() dto: CreateUserDto) {
     const passwordHash = await this.auth.hash(dto.password);
     try {
-      const user = await this.prisma.withTenant(tenant.id, (tx) =>
-        tx.user.create({
+      const user = await this.prisma.withTenant(tenant.id, async (tx) => {
+        // Serialise user creation per company so two requests can't both pass the limit.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('users:' || ${tenant.id}))`;
+        const plan = await tx.plan.findUniqueOrThrow({ where: { code: tenant.plan } });
+        const count = await tx.user.count();
+        if (plan.maxUsers !== null && count >= plan.maxUsers) {
+          throw new ForbiddenException(`The ${plan.name} plan allows ${plan.maxUsers} users. Choose a bigger plan in Settings > Billing to add more.`);
+        }
+        return tx.user.create({
           data: { tenantId: tenant.id, email: dto.email.toLowerCase(), name: dto.name, passwordHash, role: dto.role ?? 'MEMBER' },
-        }),
-      );
+        });
+      });
       return publicUser(user);
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {

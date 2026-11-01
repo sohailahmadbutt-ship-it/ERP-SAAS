@@ -12,7 +12,14 @@ model Tenant {
   id        String   @id @default(uuid()) @db.Uuid
   slug      String   @unique
   name      String
-  plan      String   @default("trial")
+  plan      String   @default("business")
+  planRef   Plan     @relation(fields: [plan], references: [code])
+  status    SubscriptionStatus @default(TRIALING)
+  trialEndsAt      DateTime? @map("trial_ends_at")
+  /// End of the last paid period. Writes are allowed for a short grace period after it.
+  currentPeriodEnd DateTime? @map("current_period_end")
+  /// Shown to the company when the platform suspends it.
+  statusNote       String?   @map("status_note")
   currency  String   @default("PKR")
   /// Tax registration number, e.g. NTN / STRN in Pakistan
   taxId     String?  @map("tax_id")
@@ -43,6 +50,7 @@ model Tenant {
   accounts   Account[]
   journalEntries JournalEntry[]
   journalLines JournalLine[]
+  platformInvoices PlatformInvoice[]
 
   @@map("tenants")
 }
@@ -631,4 +639,72 @@ model JournalLine {
 
   @@index([tenantId, accountId, date])
   @@map("journal_lines")
+}
+
+// ---------------------------------------------------------------------------
+// Platform (the SaaS operator's side). These tables are not tenant-scoped,
+// except platform_invoices, whose RLS policy also lets the platform console in.
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  SUSPENDED
+  CANCELED
+}
+
+model Plan {
+  id           String   @id @default(uuid()) @db.Uuid
+  code         String   @unique
+  name         String
+  priceMonthly Decimal  @map("price_monthly") @db.Decimal(14, 2)
+  currency     String   @default("PKR")
+  /// null means unlimited
+  maxUsers     Int?     @map("max_users")
+  description  String?
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  tenants      Tenant[]
+
+  @@map("plans")
+}
+
+model PlatformAdmin {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("platform_admins")
+}
+
+enum PlatformInvoiceStatus {
+  OPEN
+  PAID
+  VOID
+}
+
+/// What a company owes the platform for one subscription period.
+model PlatformInvoice {
+  id          String   @id @default(uuid()) @db.Uuid
+  number      String   @unique
+  tenantId    String   @map("tenant_id") @db.Uuid
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planCode    String   @map("plan_code")
+  planName    String   @map("plan_name")
+  amount      Decimal  @db.Decimal(14, 2)
+  currency    String
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  dueDate     DateTime @map("due_date")
+  status      PlatformInvoiceStatus @default(OPEN)
+  /// Bank transfer or wallet reference the company reported.
+  paymentReference String?   @map("payment_reference")
+  reportedAt       DateTime? @map("reported_at")
+  paidAt      DateTime? @map("paid_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, status])
+  @@map("platform_invoices")
 }

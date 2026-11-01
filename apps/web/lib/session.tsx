@@ -1,10 +1,11 @@
 'use client';
 import { createContext, useContext } from 'react';
-import type { Tenant, User } from './api';
+import type { Access, Tenant, User } from './api';
 
 export interface Session {
   tenant: Tenant;
   user: User;
+  subscription: Access;
   reload: () => Promise<void>;
 }
 
