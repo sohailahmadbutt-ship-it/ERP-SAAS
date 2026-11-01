@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, NotFoundException, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { BillStatus, Prisma, Tenant } from '@prisma/client';
+import { AccountingService } from '../accounting/accounting.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { buildLines, lockRow } from '../sales/lines';
@@ -22,7 +23,7 @@ const billInclude = {
 @Controller('bills')
 @UseGuards(AuthGuard)
 export class BillsController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private accounting: AccountingService) {}
 
   @Get()
   list(@CurrentTenant() tenant: Tenant, @Query() query: DocQuery) {
@@ -114,21 +115,23 @@ export class BillsController {
   }
 
   @Post(':id/post')
-  post(@CurrentTenant() tenant: Tenant, @Param('id', ParseUUIDPipe) id: string) {
+  post(@CurrentTenant() tenant: Tenant, @Req() req: Req, @Param('id', ParseUUIDPipe) id: string) {
     return this.prisma.withTenant(tenant.id, async (tx) => {
       const bill = await this.load(tx, id);
       if (bill.status !== 'DRAFT') throw new BadRequestException('Only draft bills can be posted');
       if ((await tx.billLine.count({ where: { billId: id } })) === 0) throw new BadRequestException('Add at least one line first');
-      await tx.bill.update({
+      const posted = await tx.bill.update({
         where: { id },
         data: { status: bill.total.isZero() ? 'PAID' : 'POSTED', number: await nextNumber(tx, tenant.id, 'BILL'), postedAt: new Date() },
       });
+      const lines = await tx.billLine.findMany({ where: { billId: id }, include: { product: { select: { type: true } } } });
+      await this.accounting.billPosted(tx, tenant.id, req.auth.sub, posted, lines);
       return tx.bill.findUniqueOrThrow({ where: { id }, include: billInclude });
     });
   }
 
   @Post(':id/cancel')
-  cancel(@CurrentTenant() tenant: Tenant, @Param('id', ParseUUIDPipe) id: string) {
+  cancel(@CurrentTenant() tenant: Tenant, @Req() req: Req, @Param('id', ParseUUIDPipe) id: string) {
     return this.prisma.withTenant(tenant.id, async (tx) => {
       const bill = await this.load(tx, id);
       if (bill.status === 'CANCELLED') throw new BadRequestException('Already cancelled');
@@ -138,6 +141,7 @@ export class BillsController {
       for (const l of lines) {
         await tx.purchaseOrderLine.update({ where: { id: l.orderLineId! }, data: { billedQty: { decrement: l.quantity } } });
       }
+      if (bill.status !== 'DRAFT') await this.accounting.reverse(tx, tenant.id, req.auth.sub, 'BILL', id, new Date(), `Cancellation of ${bill.number}`);
       await tx.bill.update({ where: { id }, data: { status: 'CANCELLED' } });
       return tx.bill.findUniqueOrThrow({ where: { id }, include: billInclude });
     });
@@ -151,7 +155,7 @@ export class BillsController {
       const balance = bill.total.minus(bill.amountPaid);
       const amount = new Prisma.Decimal(dto.amount);
       if (amount.gt(balance)) throw new BadRequestException(`The balance due is ${balance.toFixed(2)}`);
-      await tx.billPayment.create({
+      const payment = await tx.billPayment.create({
         data: {
           tenantId: tenant.id,
           billId: id,
@@ -162,6 +166,7 @@ export class BillsController {
           createdById: req.auth.sub,
         },
       });
+      await this.accounting.billPayment(tx, tenant.id, req.auth.sub, { ...payment, vendorId: bill.vendorId, reference: bill.number });
       const amountPaid = bill.amountPaid.plus(amount);
       await tx.bill.update({ where: { id }, data: { amountPaid, status: amountPaid.equals(bill.total) ? 'PAID' : 'POSTED' } });
       return tx.bill.findUniqueOrThrow({ where: { id }, include: billInclude });

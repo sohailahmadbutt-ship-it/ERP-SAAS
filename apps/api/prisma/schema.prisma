@@ -40,6 +40,9 @@ model Tenant {
   bills      Bill[]
   billLines  BillLine[]
   billPayments BillPayment[]
+  accounts   Account[]
+  journalEntries JournalEntry[]
+  journalLines JournalLine[]
 
   @@map("tenants")
 }
@@ -99,6 +102,7 @@ model Contact {
   invoices    Invoice[]
   purchaseOrders PurchaseOrder[]
   bills       Bill[]
+  journalLines JournalLine[]
 
   @@unique([id, tenantId])
   @@index([tenantId, name])
@@ -541,4 +545,90 @@ model BillPayment {
 
   @@index([tenantId, billId])
   @@map("bill_payments")
+}
+
+// ---------------------------------------------------------------------------
+// Accounting: a double-entry journal. Documents post entries automatically;
+// reports are sums over journal lines.
+// ---------------------------------------------------------------------------
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+model Account {
+  id        String        @id @default(uuid()) @db.Uuid
+  tenantId  String        @map("tenant_id") @db.Uuid
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code      String
+  name      String
+  type      AccountType
+  /// Set on the accounts automatic postings use (RECEIVABLE, SALES, ...).
+  systemKey String?       @map("system_key")
+  archived  Boolean       @default(false)
+  createdAt DateTime      @default(now()) @map("created_at")
+  lines     JournalLine[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, code])
+  @@unique([tenantId, systemKey])
+  @@map("accounts")
+}
+
+enum JournalSource {
+  MANUAL
+  INVOICE
+  INVOICE_PAYMENT
+  BILL
+  BILL_PAYMENT
+  STOCK
+}
+
+model JournalEntry {
+  id          String        @id @default(uuid()) @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number      String
+  date        DateTime      @db.Date
+  memo        String?
+  source      JournalSource
+  /// The invoice, bill, payment or stock move that produced this entry.
+  sourceId    String?       @map("source_id") @db.Uuid
+  /// Human-readable source, e.g. INV-00001.
+  reference   String?
+  /// Set on an entry that cancels another one.
+  reversesId  String?       @map("reverses_id") @db.Uuid
+  createdById String        @map("created_by_id") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at")
+  lines       JournalLine[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, number])
+  @@index([tenantId, date])
+  @@index([tenantId, source, sourceId])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id          String       @id @default(uuid()) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entryId     String       @map("entry_id") @db.Uuid
+  entry       JournalEntry @relation(fields: [entryId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  accountId   String       @map("account_id") @db.Uuid
+  account     Account      @relation(fields: [accountId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  contactId   String?      @map("contact_id") @db.Uuid
+  contact     Contact?     @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  description String?
+  debit       Decimal      @default(0) @db.Decimal(14, 2)
+  credit      Decimal      @default(0) @db.Decimal(14, 2)
+  /// Copied from the entry so reports can filter by date without a join.
+  date        DateTime     @db.Date
+
+  @@index([tenantId, accountId, date])
+  @@map("journal_lines")
 }

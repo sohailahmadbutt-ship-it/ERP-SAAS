@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { AccountingService } from '../accounting/accounting.service';
 import { Prisma, StockMoveType } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import type { Tx } from '../prisma/prisma.service';
@@ -8,6 +9,8 @@ const D = Prisma.Decimal;
 
 @Injectable()
 export class StockService {
+  constructor(private accounting: AccountingService) {}
+
   /** Current quantity of a product in one warehouse. */
   async onHand(tx: Tx, productId: string, warehouseId: string) {
     const r = await tx.stockMove.aggregate({ where: { productId, warehouseId }, _sum: { quantity: true } });
@@ -22,8 +25,24 @@ export class StockService {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${productId}:${warehouseId}`}, 0))`;
   }
 
-  /** Records one stock operation. Must run inside a tenant transaction. */
-  async apply(tx: Tx, tenantId: string, userId: string, dto: StockMoveInput) {
+  /**
+   * Records one stock operation and its journal entry. Must run inside a
+   * tenant transaction. `fromPurchase` marks receipts against a purchase
+   * order, which are valued against "goods received, not yet billed".
+   */
+  async apply(tx: Tx, tenantId: string, userId: string, dto: StockMoveInput, opts: { fromPurchase?: boolean } = {}) {
+    const moves = await this.applyMoves(tx, tenantId, userId, dto);
+    if (moves.length) {
+      // Valued at the receipt's unit cost, otherwise the product's current average cost.
+      const cost = dto.kind === 'RECEIPT' && dto.unitCost !== undefined
+        ? new D(dto.unitCost)
+        : (await tx.product.findUniqueOrThrow({ where: { id: dto.productId }, select: { cost: true } })).cost;
+      for (const m of moves) await this.accounting.stockMoved(tx, tenantId, userId, m, cost, !!opts.fromPurchase);
+    }
+    return moves;
+  }
+
+  private async applyMoves(tx: Tx, tenantId: string, userId: string, dto: StockMoveInput) {
     const product = await tx.product.findUnique({ where: { id: dto.productId } });
     if (!product || product.archived) throw new BadRequestException('Product not found');
     if (product.type !== 'GOODS') throw new BadRequestException('Services are not stocked');

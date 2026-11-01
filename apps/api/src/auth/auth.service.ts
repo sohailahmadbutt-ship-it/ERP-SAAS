@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto, RESERVED_SLUGS, SignupDto } from './dto';
 import { ensureInventoryDefaults } from '../inventory/defaults';
 import { ensureSalesDefaults } from '../sales/defaults';
+import { ensureAccounts } from '../accounting/chart';
 
 export interface JwtPayload {
   sub: string;
@@ -37,6 +38,7 @@ export class AuthService {
         });
         await ensureInventoryDefaults(tx, tenant.id);
         await ensureSalesDefaults(tx, tenant.id);
+        await ensureAccounts(tx, tenant.id);
         return { tenant, user };
       });
       return this.session(tenant, user);

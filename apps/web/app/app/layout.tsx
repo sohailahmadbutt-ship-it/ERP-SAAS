@@ -11,6 +11,7 @@ const NAV = [
   { href: '/app/invoices', label: 'Invoices' },
   { href: '/app/purchases', label: 'Purchases' },
   { href: '/app/bills', label: 'Bills' },
+  { href: '/app/accounting', label: 'Accounting' },
   { href: '/app/contacts', label: 'Contacts' },
   { href: '/app/products', label: 'Products' },
   { href: '/app/inventory', label: 'Inventory' },

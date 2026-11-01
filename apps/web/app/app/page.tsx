@@ -12,7 +12,7 @@ const MODULES: { name: string; href?: string }[] = [
   { name: 'Vendor bills', href: '/app/bills' },
   { name: 'Products', href: '/app/products' },
   { name: 'Inventory', href: '/app/inventory' },
-  { name: 'Accounting' },
+  { name: 'Accounting', href: '/app/accounting' },
   { name: 'Point of Sale' },
   { name: 'CRM' },
 ];
