@@ -51,6 +51,11 @@ model Tenant {
   journalEntries JournalEntry[]
   journalLines JournalLine[]
   platformInvoices PlatformInvoice[]
+  posRegisters PosRegister[]
+  posSessions  PosSession[]
+  posOrders    PosOrder[]
+  posOrderLines PosOrderLine[]
+  posPayments  PosPayment[]
 
   @@map("tenants")
 }
@@ -111,6 +116,7 @@ model Contact {
   purchaseOrders PurchaseOrder[]
   bills       Bill[]
   journalLines JournalLine[]
+  posOrders   PosOrder[]
 
   @@unique([id, tenantId])
   @@index([tenantId, name])
@@ -163,6 +169,7 @@ model Product {
   invoiceLines InvoiceLine[]
   purchaseLines PurchaseOrderLine[]
   billLines    BillLine[]
+  posLines     PosOrderLine[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, sku])
@@ -182,6 +189,7 @@ model Warehouse {
   moves     StockMove[]
   salesOrders SalesOrder[]
   purchaseOrders PurchaseOrder[]
+  posRegisters PosRegister[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, code])
@@ -238,6 +246,7 @@ model Tax {
   invoiceLines InvoiceLine[]
   purchaseLines PurchaseOrderLine[]
   billLines    BillLine[]
+  posRegisters PosRegister[]
 
   @@unique([id, tenantId])
   @@map("taxes")
@@ -594,6 +603,8 @@ enum JournalSource {
   BILL
   BILL_PAYMENT
   STOCK
+  POS_ORDER
+  POS_SESSION
 }
 
 model JournalEntry {
@@ -707,4 +718,134 @@ model PlatformInvoice {
 
   @@index([tenantId, status])
   @@map("platform_invoices")
+}
+
+// ---------------------------------------------------------------------------
+// Point of sale
+
+/// A till: which warehouse it sells from and how its prices are taxed.
+model PosRegister {
+  id               String       @id @default(uuid()) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name             String
+  warehouseId      String       @map("warehouse_id") @db.Uuid
+  warehouse        Warehouse    @relation(fields: [warehouseId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  taxId            String?      @map("tax_id") @db.Uuid
+  tax              Tax?         @relation(fields: [taxId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  /// Shelf prices already include the tax (usual in retail).
+  pricesIncludeTax Boolean      @default(true) @map("prices_include_tax")
+  /// Printed at the bottom of receipts.
+  receiptFooter    String?      @map("receipt_footer")
+  archived         Boolean      @default(false)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  sessions         PosSession[]
+
+  @@unique([id, tenantId])
+  @@map("pos_registers")
+}
+
+enum PosSessionStatus {
+  OPEN
+  CLOSED
+}
+
+/// One cashier shift on a register, from opening float to cash count.
+model PosSession {
+  id           String           @id @default(uuid()) @db.Uuid
+  tenantId     String           @map("tenant_id") @db.Uuid
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number       String
+  registerId   String           @map("register_id") @db.Uuid
+  register     PosRegister      @relation(fields: [registerId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  status       PosSessionStatus @default(OPEN)
+  openingCash  Decimal          @map("opening_cash") @db.Decimal(14, 2)
+  openedById   String           @map("opened_by_id") @db.Uuid
+  openedAt     DateTime         @default(now()) @map("opened_at")
+  expectedCash Decimal?         @map("expected_cash") @db.Decimal(14, 2)
+  countedCash  Decimal?         @map("counted_cash") @db.Decimal(14, 2)
+  /// counted minus expected; negative means cash is missing.
+  difference   Decimal?         @db.Decimal(14, 2)
+  closingNote  String?          @map("closing_note")
+  closedById   String?          @map("closed_by_id") @db.Uuid
+  closedAt     DateTime?        @map("closed_at")
+  orders       PosOrder[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, number])
+  @@map("pos_sessions")
+}
+
+enum PosOrderStatus {
+  PAID
+  REFUNDED
+}
+
+/// A completed sale (or, with refundOfId set, a refund with negative amounts).
+model PosOrder {
+  id          String         @id @default(uuid()) @db.Uuid
+  tenantId    String         @map("tenant_id") @db.Uuid
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  number      String
+  sessionId   String         @map("session_id") @db.Uuid
+  session     PosSession     @relation(fields: [sessionId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  customerId  String?        @map("customer_id") @db.Uuid
+  customer    Contact?       @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  status      PosOrderStatus @default(PAID)
+  refundOfId  String?        @map("refund_of_id") @db.Uuid
+  refundOf    PosOrder?      @relation("PosRefunds", fields: [refundOfId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  refunds     PosOrder[]     @relation("PosRefunds")
+  subtotal    Decimal        @db.Decimal(14, 2)
+  taxTotal    Decimal        @map("tax_total") @db.Decimal(14, 2)
+  total       Decimal        @db.Decimal(14, 2)
+  /// What the customer handed over; change = tendered - total.
+  tendered    Decimal        @db.Decimal(14, 2)
+  change      Decimal        @default(0) @db.Decimal(14, 2)
+  createdById String         @map("created_by_id") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at")
+  lines       PosOrderLine[]
+  payments    PosPayment[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, number])
+  @@index([tenantId, sessionId])
+  @@map("pos_orders")
+}
+
+model PosOrderLine {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId     String   @map("order_id") @db.Uuid
+  order       PosOrder @relation(fields: [orderId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  position    Int
+  productId   String   @map("product_id") @db.Uuid
+  product     Product  @relation(fields: [productId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  description String
+  quantity    Decimal  @db.Decimal(14, 3)
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(14, 2)
+  discountPct Decimal  @default(0) @map("discount_pct") @db.Decimal(5, 2)
+  taxRate     Decimal  @default(0) @map("tax_rate") @db.Decimal(6, 3)
+  subtotal    Decimal  @db.Decimal(14, 2)
+  taxAmount   Decimal  @map("tax_amount") @db.Decimal(14, 2)
+  total       Decimal  @db.Decimal(14, 2)
+
+  @@index([tenantId, orderId])
+  @@map("pos_order_lines")
+}
+
+model PosPayment {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId   String   @map("order_id") @db.Uuid
+  order     PosOrder @relation(fields: [orderId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  /// CASH, CARD or WALLET (JazzCash, Easypaisa and the like).
+  method    String
+  /// Amount kept: cash is net of change. Negative on refunds.
+  amount    Decimal  @db.Decimal(14, 2)
+  reference String?
+
+  @@index([tenantId, orderId])
+  @@map("pos_payments")
 }

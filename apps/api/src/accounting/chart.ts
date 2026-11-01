@@ -4,7 +4,7 @@ import type { Tx } from '../prisma/prisma.service';
 export type SystemKey =
   | 'CASH' | 'BANK' | 'RECEIVABLE' | 'INVENTORY' | 'TAX_INPUT'
   | 'PAYABLE' | 'TAX_OUTPUT' | 'GRNI' | 'EQUITY'
-  | 'SALES' | 'COGS' | 'STOCK_ADJUSTMENT' | 'EXPENSES';
+  | 'SALES' | 'COGS' | 'STOCK_ADJUSTMENT' | 'EXPENSES' | 'CASH_DIFFERENCE';
 
 /** Starter chart of accounts. Companies can rename these and add their own. */
 export const DEFAULT_ACCOUNTS: { code: string; name: string; type: AccountType; systemKey: SystemKey }[] = [
@@ -21,6 +21,7 @@ export const DEFAULT_ACCOUNTS: { code: string; name: string; type: AccountType; 
   { code: '5000', name: 'Cost of goods sold', type: 'EXPENSE', systemKey: 'COGS' },
   { code: '5100', name: 'Stock adjustments', type: 'EXPENSE', systemKey: 'STOCK_ADJUSTMENT' },
   { code: '6000', name: 'General expenses', type: 'EXPENSE', systemKey: 'EXPENSES' },
+  { code: '6100', name: 'Cash over and short', type: 'EXPENSE', systemKey: 'CASH_DIFFERENCE' },
 ];
 
 /** Creates any missing system accounts. Must run inside a tenant transaction. */

@@ -51,7 +51,7 @@ describe('accounting: automatic journal and reports', () => {
   });
 
   it('gives a new company a starter chart of accounts', () => {
-    expect(Object.keys(acc)).toEqual(['1000', '1010', '1100', '1200', '1300', '2000', '2100', '2200', '3000', '4000', '5000', '5100', '6000']);
+    expect(Object.keys(acc)).toEqual(['1000', '1010', '1100', '1200', '1300', '2000', '2100', '2200', '3000', '4000', '5000', '5100', '6000', '6100']);
   });
 
   it('posts a manual entry and rejects unbalanced ones', async () => {
@@ -160,8 +160,8 @@ describe('accounting: automatic journal and reports', () => {
 
   it('protects system accounts and lets admins add their own', async () => {
     await A().patch(`/accounts/${acc['1100']}`, { archived: true }).expect(400);
-    await A().post('/accounts', { code: '6100', name: 'Rent', type: 'EXPENSE' }).expect(201);
-    await A().post('/accounts', { code: '6100', name: 'Dup', type: 'EXPENSE' }).expect(409);
+    await A().post('/accounts', { code: '6200', name: 'Rent', type: 'EXPENSE' }).expect(201);
+    await A().post('/accounts', { code: '6200', name: 'Dup', type: 'EXPENSE' }).expect(409);
   });
 
   it('keeps the books separate between companies', async () => {

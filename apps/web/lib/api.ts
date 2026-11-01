@@ -394,3 +394,68 @@ export const ACCOUNT_TYPE_LABELS: Record<Account['type'], string> = {
   INCOME: 'Income',
   EXPENSE: 'Expenses',
 };
+
+// ---- Point of sale ---------------------------------------------------------
+
+export type PosMethod = 'CASH' | 'CARD' | 'WALLET';
+export const POS_METHOD_LABELS: Record<PosMethod, string> = { CASH: 'Cash', CARD: 'Card', WALLET: 'Wallet' };
+
+export interface PosRegister {
+  id: string;
+  name: string;
+  warehouseId: string;
+  warehouse: { id: string; code: string; name: string };
+  taxId: string | null;
+  tax: Tax | null;
+  pricesIncludeTax: boolean;
+  receiptFooter: string | null;
+  archived: boolean;
+  sessions: { id: string; number: string; openedById: string; openedAt: string }[];
+}
+
+export interface PosSession {
+  id: string;
+  number: string;
+  registerId: string;
+  register: PosRegister;
+  status: 'OPEN' | 'CLOSED';
+  openingCash: string;
+  openedById: string;
+  openedAt: string;
+  expectedCash: string | null;
+  countedCash: string | null;
+  difference: string | null;
+  closingNote: string | null;
+  closedAt: string | null;
+  totals?: { orders: number; sales: string; tax: string; refunds: number; refunded: string; byMethod: Partial<Record<PosMethod, string>> };
+}
+
+export interface PosProduct {
+  id: string;
+  name: string;
+  sku: string | null;
+  barcode: string | null;
+  type: 'GOODS' | 'SERVICE';
+  salePrice: string;
+  unit: { code: string };
+  onHand: string | null;
+}
+
+export interface PosOrder {
+  id: string;
+  number: string;
+  sessionId: string;
+  status: 'PAID' | 'REFUNDED';
+  customer: { id: string; name: string } | null;
+  refundOf?: { id: string; number: string } | null;
+  refunds?: { id: string; number: string }[];
+  subtotal: string;
+  taxTotal: string;
+  total: string;
+  tendered: string;
+  change: string;
+  createdAt: string;
+  lines?: { id: string; description: string; quantity: string; unitPrice: string; discountPct: string; taxRate: string; total: string }[];
+  payments: { method: PosMethod; amount: string; reference: string | null }[];
+  session?: { id: string; number: string; register: { id: string; name: string; receiptFooter: string | null } };
+}

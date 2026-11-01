@@ -86,3 +86,28 @@ section.card.entry { margin-top: 12px; padding: 14px 18px; }
 .topbar.platform .nav a { color: #b8c0cf; }
 .topbar.platform .nav a.active { color: #fff; }
 .topbar.platform button.link { color: #9fbaff; }
+
+/* Point of sale */
+.wrap:has(.pos) { max-width: 1400px; }
+.pos { display: grid; grid-template-columns: 1fr 420px; gap: 16px; align-items: start; }
+.pos-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+.pos-tile { margin: 0; background: #fff; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; text-align: left; min-height: 88px; display: flex; flex-direction: column; gap: 4px; }
+.pos-tile:hover:not(:disabled) { border-color: var(--accent); }
+.pos-tile strong { font-size: 15px; }
+.pos-tile span { font-size: 13px; color: var(--muted); }
+.pos-cart { position: sticky; top: 12px; }
+.pos-cart table td { padding: 6px 4px; vertical-align: middle; }
+.pos-cart input.qty { width: 64px; padding: 4px 6px; text-align: right; }
+.pos-total { font-size: 28px; font-weight: 700; text-align: right; margin: 8px 0; }
+.pos-methods { display: flex; gap: 6px; }
+.pos-methods button { flex: 1; margin: 0; }
+.pos-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.pos-quick button { margin: 0; padding: 6px 10px; font-size: 14px; }
+.pos-change { font-size: 20px; font-weight: 600; color: #1d7a3a; text-align: right; }
+button.big { width: 100%; padding: 14px; font-size: 18px; }
+.receipt { width: 300px; margin: 16px auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: #000; background: #fff; padding: 12px; }
+.receipt h1 { font-size: 15px; text-align: center; margin: 0 0 4px; }
+.receipt .c { text-align: center; }
+.receipt table td { border: 0; padding: 1px 0; font-size: 12px; }
+.receipt hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+@media print { @page { size: 80mm auto; margin: 0; } .receipt { margin: 0; width: 100%; } }
