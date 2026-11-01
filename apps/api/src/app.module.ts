@@ -26,6 +26,7 @@ import { PlatformController } from './platform/platform.controller';
 import { PosController } from './pos/pos.controller';
 import { PosService } from './pos/pos.service';
 import { CrmController } from './crm/crm.controller';
+import { TlsController } from './tenancy/tls.controller';
 
 @Module({
   imports: [
@@ -35,7 +36,7 @@ import { CrmController } from './crm/crm.controller';
       signOptions: { expiresIn: '12h' },
     }),
   ],
-  controllers: [HealthController, AuthController, UsersController, CompanyController, ContactsController, UnitsController, WarehousesController, ProductsController, StockController, TaxesController, SalesOrdersController, InvoicesController, PurchaseOrdersController, BillsController, AccountingController, BillingController, PlansController, PlatformController, PosController, CrmController],
+  controllers: [HealthController, AuthController, UsersController, CompanyController, ContactsController, UnitsController, WarehousesController, ProductsController, StockController, TaxesController, SalesOrdersController, InvoicesController, PurchaseOrdersController, BillsController, AccountingController, BillingController, PlansController, PlatformController, PosController, CrmController, TlsController],
   providers: [PrismaService, AuthService, StockService, AccountingService, PosService],
 })
 export class AppModule implements NestModule {

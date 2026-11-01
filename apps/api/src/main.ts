@@ -5,6 +5,9 @@ import { AppModule } from './app.module';
 import { configureApp } from './configure-app';
 
 async function bootstrap() {
+  if (process.env.NODE_ENV === 'production' && (process.env.JWT_SECRET ?? '').length < 32) {
+    throw new Error('Set JWT_SECRET to a random value of at least 32 characters');
+  }
   const app = await NestFactory.create(AppModule);
   configureApp(app);
   const doc = SwaggerModule.createDocument(

@@ -1,0 +1,29 @@
+# HTTPS for the main site, the API and every company subdomain.
+# Company certificates are issued on first visit, but only after the API
+# confirms the company exists (see /tls/allowed), so no wildcard certificate
+# or DNS provider API key is needed.
+{
+	email {$ACME_EMAIL}
+	on_demand_tls {
+		ask http://api:4000/tls/allowed
+	}
+}
+
+api.{$ROOT_DOMAIN} {
+	encode gzip
+	reverse_proxy api:4000
+}
+
+{$ROOT_DOMAIN}, www.{$ROOT_DOMAIN} {
+	encode gzip
+	reverse_proxy web:3000
+}
+
+# Company subdomains (acme.example.com).
+https:// {
+	tls {
+		on_demand
+	}
+	encode gzip
+	reverse_proxy web:3000
+}

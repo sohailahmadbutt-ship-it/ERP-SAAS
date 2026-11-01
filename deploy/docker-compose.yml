@@ -1,0 +1,68 @@
+# Production stack: Postgres, API, web and Caddy (automatic HTTPS).
+# Run from this folder:  docker compose --env-file .env up -d --build
+name: erp-saas
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d erp"]
+      interval: 5s
+      retries: 20
+
+  api:
+    image: erp-saas-api
+    build: { context: .., dockerfile: apps/api/Dockerfile }
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      DATABASE_URL: postgresql://erp_app:${APP_DB_PASSWORD}@postgres:5432/erp
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      ROOT_DOMAIN: ${ROOT_DOMAIN:?set ROOT_DOMAIN in .env}
+      PAYMENT_INSTRUCTIONS: ${PAYMENT_INSTRUCTIONS:-}
+      API_PORT: 4000
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      retries: 12
+    # Only reachable through Caddy (or 127.0.0.1 when an existing proxy is used).
+    ports: ["127.0.0.1:${API_LOCAL_PORT:-4100}:4000"]
+
+  web:
+    image: erp-saas-web
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${ROOT_DOMAIN}
+        NEXT_PUBLIC_ROOT_DOMAIN: ${ROOT_DOMAIN}
+    restart: unless-stopped
+    depends_on: [api]
+    ports: ["127.0.0.1:${WEB_LOCAL_PORT:-3100}:3000"]
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    profiles: ["caddy"]
+    depends_on: [web, api]
+    environment:
+      ROOT_DOMAIN: ${ROOT_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
